@@ -1,4 +1,3 @@
-import firebase from "firebase/compat/app"
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
@@ -75,12 +74,8 @@ function BotsList(props: { approved?: boolean }) {
       )
     )
       return
-    const token = await firebase.auth().currentUser?.getIdToken()
     const res = await fetch(`/bots/${bot.id}`, {
-      method: "DELETE",
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
+      method: "DELETE"
     })
     if (res.ok) {
       setBots((bots) => bots?.filter((b) => b.id !== bot.id) ?? [])
@@ -88,11 +83,9 @@ function BotsList(props: { approved?: boolean }) {
   }
 
   async function approveBot(botId: string, approved: boolean) {
-    const token = await firebase.auth().currentUser?.getIdToken()
     const res = await fetch(`/bots/${botId}/approve`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${token}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({ approved })

@@ -1,5 +1,4 @@
 import { Client, getStateCallbacks, Room, RoomAvailable } from "colyseus.js"
-import firebase from "firebase/compat/app"
 import { t } from "i18next"
 import { NavigateFunction } from "react-router-dom"
 import {
@@ -77,8 +76,7 @@ export async function joinLobbyRoom(
 
           if (!room) {
             // otherwise, connect to the lobby room
-            const idToken = await user.getIdToken()
-            room = await client.join("lobby", { idToken })
+            room = await client.join("lobby", { uid: user.uid })
           }
 
           // store reconnection token for 5 minutes ; server may kick the inactive users before that
@@ -302,33 +300,29 @@ export async function joinExistingPreparationRoom(
   navigate: NavigateFunction
 ) {
   try {
-    const token = await firebase.auth().currentUser?.getIdToken()
-    if (token) {
-      dispatch(resetPreparation())
-      const room: Room<PreparationState> = await client.joinById(roomId, {
-        idToken: token
-      })
-      if (room.name !== "preparation") {
-        room.connection.isOpen && room.leave(false)
-        throw new Error(
-          `Expected to join a preparation room but joined ${room.name} instead`
-        )
-      }
-      localStore.set(
-        LocalStoreKeys.RECONNECTION_PREPARATION,
-        {
-          reconnectionToken: room.reconnectionToken,
-          roomId: room.roomId
-        },
-        30
+    const uid = store.getState().network.uid
+    dispatch(resetPreparation())
+    const room: Room<PreparationState> = await client.joinById(roomId, { uid })
+    if (room.name !== "preparation") {
+      room.connection.isOpen && room.leave(false)
+      throw new Error(
+        `Expected to join a preparation room but joined ${room.name} instead`
       )
-      await Promise.allSettled([
-        lobby?.connection.isOpen && lobby.leave(false),
-        room.connection.isOpen && room.leave(false)
-      ])
-      dispatch(resetLobby())
-      navigate("/preparation")
     }
+    localStore.set(
+      LocalStoreKeys.RECONNECTION_PREPARATION,
+      {
+        reconnectionToken: room.reconnectionToken,
+        roomId: room.roomId
+      },
+      30
+    )
+    await Promise.allSettled([
+      lobby?.connection.isOpen && lobby.leave(false),
+      room.connection.isOpen && room.leave(false)
+    ])
+    dispatch(resetLobby())
+    navigate("/preparation")
   } catch (error) {
     if (error.code && error.code in CloseCodesMessages) {
       const errorMessage = CloseCodesMessages[error.code]

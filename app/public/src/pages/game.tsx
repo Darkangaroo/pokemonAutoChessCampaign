@@ -1,5 +1,4 @@
 import { Client, getStateCallbacks, Room } from "colyseus.js"
-import firebase from "firebase/compat/app"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
@@ -218,8 +217,6 @@ export default function Game() {
   const leave = useCallback(async () => {
     const afterPlayers = new Array<IAfterGamePlayer>()
 
-    const token = await firebase.auth().currentUser?.getIdToken()
-
     if (gameContainer && gameContainer.game) {
       gameContainer.game.destroy(true)
     }
@@ -286,9 +283,10 @@ export default function Game() {
       afterPlayers.filter((p) => p.role !== Role.BOT).length >= 2
     const gameMode = room?.state.gameMode
 
+    const uid = store.getState().network.uid
     const r: Room<AfterGameState> = await client.create("after-game", {
       players: afterPlayers,
-      idToken: token,
+      uid,
       elligibleToXP,
       elligibleToELO,
       gameMode

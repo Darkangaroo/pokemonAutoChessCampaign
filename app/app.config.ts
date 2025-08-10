@@ -9,8 +9,6 @@ import {
 import cors from "cors"
 import express, { ErrorRequestHandler } from "express"
 import basicAuth from "express-basic-auth"
-import admin from "firebase-admin"
-import { UserRecord } from "firebase-admin/lib/auth/user-record"
 import helmet from "helmet"
 import { connect } from "mongoose"
 import path from "path"
@@ -368,23 +366,8 @@ export default config({
       res.send(await fetchBot(req.params.id))
     })
 
-    const authUser = async (req, res): Promise<UserRecord | null> => {
-      let user
-      try {
-        //get header Authorization
-        const authHeader = req.headers.authorization
-        if (!authHeader) throw new Error("Unauthorized")
-        const token = authHeader.split(" ")[1]
-        if (!token) throw new Error("Unauthorized")
-        // get user from firebase
-        const decodedToken = await admin.auth().verifyIdToken(token)
-        user = await admin.auth().getUser(decodedToken.uid)
-        if (!user || !user.displayName) throw new Error("Unauthorized")
-        return user
-      } catch (error) {
-        res.status(401).send(error)
-        return null
-      }
+    const authUser = async (req, res) => {
+      return { uid: "offline", displayName: "offline" }
     }
 
     app.get("/profile", async (req, res) => {
@@ -496,13 +479,6 @@ export default config({
     connect(process.env.MONGO_URI!, {
       maxPoolSize: MAX_POOL_CONNECTIONS_SIZE,
       socketTimeoutMS: 45000
-    })
-    admin.initializeApp({
-      credential: admin.credential.cert({
-        projectId: process.env.FIREBASE_PROJECT_ID!,
-        clientEmail: process.env.FIREBASE_CLIENT_EMAIL!,
-        privateKey: process.env.FIREBASE_PRIVATE_KEY!.replace(/\\n/g, "\n")
-      })
     })
   }
 })
