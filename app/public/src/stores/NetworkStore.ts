@@ -1,4 +1,3 @@
-import { User } from "@firebase/auth-types"
 import { createSlice, PayloadAction } from "@reduxjs/toolkit"
 import { Client, Room } from "colyseus.js"
 import { CollectionUtils } from "../../../core/collection"
@@ -64,7 +63,10 @@ export const networkSlice = createSlice({
   name: "network",
   initialState: initalState,
   reducers: {
-    logIn: (state, action: PayloadAction<User>) => {
+    logIn: (
+      state,
+      action: PayloadAction<{ uid: string; displayName?: string }>,
+    ) => {
       if (action.payload) {
         state.uid = action.payload.uid
         state.displayName = action.payload.displayName ?? "Anonymous"
@@ -192,10 +194,8 @@ export const networkSlice = createSlice({
     itemClick: (state, action: PayloadAction<Item>) => {
       state.game?.send(Transfer.ITEM, action.payload)
     },
-    gameStartRequest: (state, action: PayloadAction<string>) => {
-      state.preparation?.send(Transfer.GAME_START_REQUEST, {
-        token: action.payload
-      })
+    gameStartRequest: (state) => {
+      state.preparation?.send(Transfer.GAME_START_REQUEST)
     },
     changeRoomName: (state, action: PayloadAction<string>) => {
       state.preparation?.send(Transfer.CHANGE_ROOM_NAME, action.payload)

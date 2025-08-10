@@ -1,7 +1,6 @@
 import { Dispatcher } from "@colyseus/command"
 import { MapSchema } from "@colyseus/schema"
 import { Client, Room } from "colyseus"
-import admin from "firebase-admin"
 import { nanoid } from "nanoid"
 import { computeElo } from "../core/elo"
 import { CountEvolutionRule, ItemEvolutionRule } from "../core/evolution-rules"
@@ -535,20 +534,13 @@ export default class GameRoom extends Room<GameState> {
     this.miniGame.initialize(this.state, this)
   }
 
-  async onAuth(client: Client, options, context) {
+  async onAuth(client: Client, options: any, context: any) {
     try {
       super.onAuth(client, options, context)
-      const token = await admin.auth().verifyIdToken(options.idToken)
-      const user = await admin.auth().getUser(token.uid)
-
-      if (!user.displayName) {
-        logger.error("No display name for this account", user.uid)
-        throw new Error(
-          "No display name for this account. Please report this error."
-        )
+      return {
+        uid: options.uid ?? client.sessionId,
+        displayName: options.displayName ?? "Guest",
       }
-
-      return user
     } catch (error) {
       logger.error(error)
     }

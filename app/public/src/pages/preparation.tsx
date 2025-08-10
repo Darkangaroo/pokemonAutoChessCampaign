@@ -1,5 +1,4 @@
 import { Client, getStateCallbacks, Room } from "colyseus.js"
-import firebase from "firebase/compat/app"
 import React, { useCallback, useEffect, useRef } from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
@@ -14,6 +13,7 @@ import type { NonFunctionPropNames } from "../../../types/HelperTypes"
 import { logger } from "../../../utils/logger"
 import { useAppDispatch, useAppSelector } from "../hooks"
 import { authenticateUser } from "../network"
+import store from "../stores"
 import {
   joinPreparation,
   setConnectionStatus,
@@ -260,12 +260,12 @@ export default function Preparation() {
       })
 
       room.onMessage(Transfer.GAME_START, async (roomId) => {
-        const token = await firebase.auth().currentUser?.getIdToken()
-        if (token && !connectingToGame.current) {
+        const uid = store.getState().network.uid
+        if (!connectingToGame.current) {
           playSound(SOUNDS.START_GAME)
           connectingToGame.current = true
           const game: Room<GameState> = await client.joinById(roomId, {
-            idToken: token
+            uid
           })
           localStore.set(
             LocalStoreKeys.RECONNECTION_GAME,

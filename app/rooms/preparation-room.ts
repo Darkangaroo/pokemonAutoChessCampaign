@@ -1,7 +1,5 @@
 import { Dispatcher } from "@colyseus/command"
 import { Client, ClientArray, Room, updateLobby } from "colyseus"
-import admin from "firebase-admin"
-import { UserRecord } from "firebase-admin/lib/auth/user-record"
 import { IBot } from "../models/mongo-models/bot-v2"
 import UserMetadata from "../models/mongo-models/user-metadata"
 import { IPreparationMetadata, Role, Transfer } from "../types"
@@ -30,7 +28,7 @@ import PreparationState from "./states/preparation-state"
 
 export default class PreparationRoom extends Room<PreparationState> {
   dispatcher: Dispatcher<this>
-  clients!: ClientArray<undefined, UserRecord>
+  clients!: ClientArray<undefined, any>
 
   constructor() {
     super()
@@ -333,14 +331,13 @@ export default class PreparationRoom extends Room<PreparationState> {
     this.presence.subscribe("room-deleted", this.onRoomDeleted)
   }
 
-  async onAuth(client: Client, options, context) {
+  async onAuth(client: Client, options: any, context: any) {
     try {
-      const token = await admin.auth().verifyIdToken(options.idToken)
-      const user = await admin.auth().getUser(token.uid)
-      const userProfile = await UserMetadata.findOne({ uid: user.uid })
+      const uid = options.uid ?? client.sessionId
+      const userProfile = await UserMetadata.findOne({ uid })
       const isAdmin = userProfile?.role === Role.ADMIN
 
-      const isAlreadyInRoom = this.state.users.has(user.uid)
+      const isAlreadyInRoom = this.state.users.has(uid)
       const numberOfHumanPlayers = values(this.state.users).filter(
         (u) => !u.isBot
       ).length
@@ -351,14 +348,12 @@ export default class PreparationRoom extends Room<PreparationState> {
         throw "Already joined"
       } else if (this.state.gameStartedAt != null) {
         throw "Game already started"
-      } else if (!user.displayName) {
-        throw "No display name"
       } else if (userProfile?.banned) {
         throw "User banned"
-      } else if (this.metadata.blacklist.includes(user.uid)) {
+      } else if (this.metadata.blacklist.includes(uid)) {
         throw "User previously kicked"
       } else {
-        return user
+        return { uid, displayName: userProfile?.displayName ?? "Guest" }
       }
     } catch (error) {
       logger.error(error)
@@ -366,9 +361,9 @@ export default class PreparationRoom extends Room<PreparationState> {
   }
 
   async onJoin(
-    client: Client<undefined, UserRecord>,
+    client: Client<undefined, any>,
     options: any,
-    auth: UserRecord | undefined
+    auth: any | undefined
   ) {
     if (auth) {
       /*logger.info(
