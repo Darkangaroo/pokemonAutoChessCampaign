@@ -3,7 +3,6 @@ import { createRoot } from "react-dom/client"
 import { Provider } from "react-redux"
 import { BrowserRouter, Route, Routes } from "react-router-dom"
 import AfterGame from "./pages/after-game"
-import Auth from "./pages/auth"
 import BotBuilder from "./pages/component/bot-builder/bot-builder"
 import { BotManagerPanel } from "./pages/component/bot-builder/bot-manager-panel"
 import MapViewer from "./pages/component/debug/map-viewer"
@@ -39,7 +38,7 @@ root.render(
           v7_relativeSplatPath: true,
         }}>
           <Routes>
-            <Route path="/" element={<Auth />} />
+            <Route path="/" element={<Lobby />} />
             <Route path="/lobby" element={<Lobby />} />
             <Route path="/preparation" element={<Preparation />} />
             <Route path="/game" element={<Game />} />

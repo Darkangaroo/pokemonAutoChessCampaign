@@ -1,7 +1,6 @@
 import { Dispatcher } from "@colyseus/command"
 import { Client, IRoomCache, matchMaker, Room, subscribeLobby } from "colyseus"
 import { CronJob } from "cron"
-import admin from "firebase-admin"
 import Message from "../models/colyseus-models/message"
 import { TournamentSchema } from "../models/colyseus-models/tournament"
 import { IBot } from "../models/mongo-models/bot-v2"
@@ -422,20 +421,13 @@ export default class CustomLobbyRoom extends Room<LobbyState> {
     this.fetchTournaments()
   }
 
-  async onAuth(client: Client, options, context) {
+  async onAuth(client: Client, options: any, context: any) {
     try {
       super.onAuth(client, options, context)
-      const token = await admin.auth().verifyIdToken(options.idToken)
-      const user = await admin.auth().getUser(token.uid)
-
-      if (!user.displayName) {
-        logger.error("No display name for this account", user.uid)
-        throw new Error(
-          "No display name for this account. Please report this error."
-        )
+      return {
+        uid: options.uid ?? client.sessionId,
+        displayName: options.displayName ?? "Guest",
       }
-
-      return user
     } catch (error) {
       logger.error(`Error on authentication on lobby room`, error)
       throw error // https://docs.colyseus.io/community/deny-player-join-a-room/

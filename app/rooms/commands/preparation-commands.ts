@@ -2,7 +2,6 @@ import { memoryUsage } from "node:process"
 import { setTimeout } from "node:timers/promises"
 import { Command } from "@colyseus/command"
 import { Client, matchMaker } from "colyseus"
-import { UserRecord } from "firebase-admin/lib/auth/user-record"
 import { FilterQuery } from "mongoose"
 import {
   getPendingGame,
@@ -12,7 +11,7 @@ import {
 import { GameUser, IGameUser } from "../../models/colyseus-models/game-user"
 import { BotV2, IBot } from "../../models/mongo-models/bot-v2"
 import UserMetadata from "../../models/mongo-models/user-metadata"
-import { Role } from "../../types"
+import { Role, Title } from "../../types"
 import {
   EloRank,
   EloRankThreshold,
@@ -34,9 +33,9 @@ import PreparationRoom from "../preparation-room"
 export class OnJoinCommand extends Command<
   PreparationRoom,
   {
-    client: Client<undefined, UserRecord>
+    client: Client<undefined, any>
     options: any
-    auth: UserRecord
+    auth: any
   }
 > {
   async execute({ client, options, auth }) {
@@ -62,10 +61,16 @@ export class OnJoinCommand extends Command<
         this.state.ownerId = auth.uid
       }
 
-      const u = await UserMetadata.findOne({ uid: auth.uid })
+      let u = await UserMetadata.findOne({ uid: auth.uid })
       if (!u) {
-        client.leave(CloseCodes.USER_NOT_AUTHENTICATED)
-        return
+        u = {
+          uid: auth.uid,
+          displayName: auth.displayName ?? "Guest",
+          elo: 0,
+          avatar: "0001/Normal",
+          title: Title.NONE,
+          role: Role.PLAYER,
+        } as any
       }
 
       if (this.state.users.has(auth.uid)) {

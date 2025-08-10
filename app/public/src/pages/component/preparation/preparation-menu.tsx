@@ -1,5 +1,4 @@
 import { Room } from "colyseus.js"
-import firebase from "firebase/compat/app"
 import React, { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { IGameUser } from "../../../../../models/colyseus-models/game-user"
@@ -116,10 +115,7 @@ export default function PreparationMenu() {
 
   const startGame = throttle(async function startGame() {
     if (room) {
-      const token = await firebase.auth().currentUser?.getIdToken()
-      if (token) {
-        dispatch(gameStartRequest(token))
-      }
+      dispatch(gameStartRequest())
     }
   }, 1000)
 

@@ -1,5 +1,4 @@
 import { Room } from "colyseus.js"
-import firebase from "firebase/compat/app"
 import { GameObjects, Scene } from "phaser"
 import OutlinePlugin from "phaser3-rex-plugins/plugins/outlinepipeline-plugin"
 import { DesignTiled } from "../../../../core/design"
@@ -29,6 +28,7 @@ import { clearTitleNotificationIcon } from "../../../../utils/window"
 import { playMusic, playSound, SOUNDS } from "../../pages/utils/audio"
 import { transformBoardCoordinates } from "../../pages/utils/utils"
 import { preference } from "../../preferences"
+import store from "../../stores"
 import AnimationManager from "../animation-manager"
 import BattleManager from "../components/battle-manager"
 import BoardManager from "../components/board-manager"
@@ -80,7 +80,7 @@ export default class GameScene extends Scene {
     this.tilemaps = new Map()
     this.room = data.room
     this.spectate = data.spectate
-    this.uid = firebase.auth().currentUser?.uid
+    this.uid = store.getState().network.uid
     this.started = false
   }
 
