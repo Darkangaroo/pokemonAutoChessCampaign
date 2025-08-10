@@ -2,6 +2,7 @@ import { memoryUsage } from "node:process"
 import { setTimeout } from "node:timers/promises"
 import { Command } from "@colyseus/command"
 import { Client, matchMaker } from "colyseus"
+
 import { FilterQuery } from "mongoose"
 import {
   getPendingGame,
@@ -29,6 +30,8 @@ import { cleanProfanity } from "../../utils/profanity-filter"
 import { pickRandomIn } from "../../utils/random"
 import { entries, values } from "../../utils/schemas"
 import PreparationRoom from "../preparation-room"
+import userMetadata from "../../models/mongo-models/user-metadata"
+import { names } from "@joaomoreno/unique-names-generator"
 
 export class OnJoinCommand extends Command<
   PreparationRoom,
@@ -70,7 +73,7 @@ export class OnJoinCommand extends Command<
         name: meta?.displayName ?? auth.displayName ?? "Guest",
         elo: meta?.elo ?? 0,
         avatar: meta?.avatar ?? "0001/Normal",
-        title: (meta?.title as Title) ?? Title.NONE,
+        title: (meta?.title as Title) ?? Title.AMATEUR,
         role: (meta?.role as Role) ?? Role.BASIC,
       }
 
@@ -128,7 +131,7 @@ export class OnJoinCommand extends Command<
         this.room.updatePlayersInfo()
 
         if (userData.uid == this.state.ownerId) {
-          // logger.debug(user.name);
+          // logger.debug(user.displayName);
           this.state.ownerName = userData.name
           this.room.setMetadata({
             ownerName: this.state.ownerName
@@ -440,7 +443,7 @@ export class OnRoomChangeSpecialRule extends Command<
         return
       }
 
-      if (client.auth?.uid == this.state.ownerId && user.role === Role.ADMIN) {
+       if (client.auth?.uid == this.state.ownerId && user.role === Role.ADMIN) {
         this.state.specialGameRule = specialRule
         if (specialRule != null) {
           this.state.noElo = true
