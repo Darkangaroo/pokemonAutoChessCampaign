@@ -1,5 +1,4 @@
 import { Client, Room, RoomAvailable } from "colyseus.js"
-import firebase from "firebase/compat/app"
 import React, { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
@@ -29,15 +28,15 @@ export function IngameRoomsList() {
     (state) => state.network.lobby
   )
   const user = useAppSelector((state) => state.network.profile)
+  const uid = useAppSelector((state) => state.network.uid)
 
   const joinGame = throttle(async function joinGame(
     selectedRoom: RoomAvailable<IGameMetadata>
   ) {
-    const token = await firebase.auth().currentUser?.getIdToken()
-    if (lobby && !isJoining && token) {
+    if (lobby && !isJoining && uid) {
       setJoining(true)
       const game: Room<GameState> = await client.joinById(selectedRoom.roomId, {
-        idToken: token
+        uid
       })
       localStore.set(
         LocalStoreKeys.RECONNECTION_GAME,

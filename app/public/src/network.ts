@@ -1,39 +1,32 @@
-import { User } from "@firebase/auth-types"
-import firebase from "firebase/compat/app"
-import { FIREBASE_CONFIG } from "../../types/Config"
-import { CloseCodes } from "../../types/enum/CloseCodes"
-import { IUserMetadataJSON } from "../../types/interfaces/UserMetadata"
+import { nanoid } from "nanoid"
 import store from "./stores"
-import { logIn, setProfile } from "./stores/NetworkStore"
+import { logIn } from "./stores/NetworkStore"
 
-export function authenticateUser() {
-    if (!firebase.apps.length) {
-        firebase.initializeApp(FIREBASE_CONFIG)
-    }
+interface OfflineUser {
+  uid: string
+  displayName: string
+  getIdToken: () => Promise<string>
+}
 
-    return new Promise<User>((resolve, reject) => {
-        firebase.auth().onAuthStateChanged(async (user) => {
-            if (!user) return reject(CloseCodes.USER_NOT_AUTHENTICATED)
-            store.dispatch(logIn(user))
-            fetchProfile()
-            resolve(user)
-        })
-    })
+export function authenticateUser(): Promise<OfflineUser> {
+  let uid = localStorage.getItem("offline-uid")
+  if (!uid) {
+    uid = nanoid()
+    localStorage.setItem("offline-uid", uid)
+  }
+  const user: OfflineUser = {
+    uid,
+    displayName: "Offline Player",
+    getIdToken: async () => ""
+  }
+  store.dispatch(logIn(user))
+  return Promise.resolve(user)
 }
 
 export async function fetchProfile(forceRefresh: boolean = false) {
-    const profile = store.getState().network.profile
-    const token = await firebase.auth().currentUser?.getIdToken()
-    if (!forceRefresh && profile) {
-        return Promise.resolve(profile)
-    }
-    return fetch("/profile", {
-        headers: {
-            Authorization: `Bearer ${token}`
-        }
-    })
-        .then((res) => res.json())
-        .then((profile: IUserMetadataJSON) => {
-            store.dispatch(setProfile(profile))
-        })
+  const profile = store.getState().network.profile
+  if (!forceRefresh && profile) {
+    return Promise.resolve(profile)
+  }
+  return Promise.resolve(undefined)
 }

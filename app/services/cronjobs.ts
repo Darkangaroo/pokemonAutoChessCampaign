@@ -1,7 +1,5 @@
 import { CronJob } from "cron"
 import dayjs from "dayjs"
-import admin from "firebase-admin"
-import { UserRecord } from "firebase-admin/lib/auth/user-record"
 import DetailledStatistic from "../models/mongo-models/detailled-statistic-v2"
 import History from "../models/mongo-models/history"
 import TitleStatistic from "../models/mongo-models/title-statistic"
@@ -22,12 +20,6 @@ import { min } from "../utils/number"
 export function initCronJobs() {
   logger.debug("init cron jobs")
 
-  CronJob.from({
-    cronTime: "0 8 * * *", // every day at 8am
-    timeZone: "Europe/Paris",
-    onTick: () => deleteOldAnonymousAccounts(),
-    start: true
-  })
   CronJob.from({
     cronTime: "15 8 * * *", // every day at 8:15am
     timeZone: "Europe/Paris",
@@ -54,52 +46,6 @@ export function initCronJobs() {
   })
 }
 
-async function deleteOldAnonymousAccounts() {
-  logger.info("[CRON] Deleting old anonymous accounts...")
-  const currentDate = dayjs() // Get the current date and time
-  const oneMonthLimit = currentDate.subtract(1, "month")
-  const anonymousAccounts = new Array<UserRecord>()
-  await listAllUsers()
-
-  async function listAllUsers(nextPageToken?: string) {
-    // List batch of users, 1000 at a time.
-    const listUsersResult = await admin.auth().listUsers(1000, nextPageToken)
-    //logger.debug(nextPageToken)
-    listUsersResult.users.forEach((userRecord) => {
-      const lastSignInDate = dayjs(userRecord.metadata.lastSignInTime)
-      if (
-        userRecord.email === undefined &&
-        userRecord.photoURL === undefined &&
-        userRecord.metadata.lastSignInTime &&
-        lastSignInDate.isBefore(oneMonthLimit)
-      ) {
-        anonymousAccounts.push(userRecord)
-      }
-    })
-    if (listUsersResult.pageToken) {
-      // List next batch of users.
-      await listAllUsers(listUsersResult.pageToken)
-    }
-  }
-
-  logger.info(
-    `deleting ${anonymousAccounts.length} inactive anonymous accounts`
-  )
-
-  while (anonymousAccounts.length > 0) {
-    const batchDeletion = new Array<string>()
-    for (let i = 0; i < 999; i++) {
-      const account = anonymousAccounts.pop()
-      account && batchDeletion.push(account.uid)
-    }
-    const firebaseDeletion = await admin.auth().deleteUsers(batchDeletion)
-    logger.info("firebase deletion result ", firebaseDeletion)
-    const pacDeletion = await UserMetadata.deleteMany({
-      uid: { $in: batchDeletion }
-    })
-    logger.info("pac deletion result ", pacDeletion)
-  }
-}
 
 async function eloDecay() {
   logger.info("[CRON] Computing elo decay...")

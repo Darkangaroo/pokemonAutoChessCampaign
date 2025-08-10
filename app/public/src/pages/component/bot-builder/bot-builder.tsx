@@ -1,4 +1,3 @@
-import firebase from "firebase/compat/app"
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router"
@@ -317,12 +316,10 @@ export function SubmitBotModal(props: {
     setError("")
     setSuccess(false)
     try {
-      const token = await firebase.auth().currentUser?.getIdToken()
       const res = await fetch("/bots", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
+          "Content-Type": "application/json"
         },
         body: JSON.stringify(props.bot)
       })
