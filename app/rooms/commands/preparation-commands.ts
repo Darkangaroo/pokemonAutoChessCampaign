@@ -2,6 +2,7 @@ import { memoryUsage } from "node:process"
 import { setTimeout } from "node:timers/promises"
 import { Command } from "@colyseus/command"
 import { Client, matchMaker } from "colyseus"
+
 import { FilterQuery } from "mongoose"
 import {
   getPendingGame,
@@ -29,6 +30,8 @@ import { cleanProfanity } from "../../utils/profanity-filter"
 import { pickRandomIn } from "../../utils/random"
 import { entries, values } from "../../utils/schemas"
 import PreparationRoom from "../preparation-room"
+import userMetadata from "../../models/mongo-models/user-metadata"
+import { names } from "@joaomoreno/unique-names-generator"
 
 export class OnJoinCommand extends Command<
   PreparationRoom,
@@ -61,16 +64,17 @@ export class OnJoinCommand extends Command<
         this.state.ownerId = auth.uid
       }
 
-      let u = await UserMetadata.findOne({ uid: auth.uid })
-      if (!u) {
-        u = {
-          uid: auth.uid,
-          displayName: auth.displayName ?? "Guest",
-          elo: 0,
-          avatar: "0001/Normal",
-          title: Title.NONE,
-          role: Role.PLAYER,
-        } as any
+      const meta = await UserMetadata.findOne({ uid: auth.uid })
+      const userData: Pick<
+        IGameUser,
+        "uid" | "name" | "elo" | "avatar" | "title" | "role"
+      > = {
+        uid: auth.uid,
+        name: meta?.displayName ?? auth.displayName ?? "Guest",
+        elo: meta?.elo ?? 0,
+        avatar: meta?.avatar ?? "0001/Normal",
+        title: (meta?.title as Title) ?? Title.AMATEUR,
+        role: (meta?.role as Role) ?? Role.BASIC,
       }
 
       if (this.state.users.has(auth.uid)) {
@@ -84,7 +88,7 @@ export class OnJoinCommand extends Command<
         const nbHumanPlayers = values(this.state.users).filter(
           (u) => !u.isBot
         ).length
-        const isAdmin = u.role === Role.ADMIN
+        const isAdmin = userData.role === Role.ADMIN
         if (nbHumanPlayers >= MAX_PLAYERS_PER_GAME && !isAdmin) {
           client.leave(CloseCodes.ROOM_FULL)
           return
@@ -92,7 +96,7 @@ export class OnJoinCommand extends Command<
 
         if (
           this.state.minRank != null &&
-          u.elo < EloRankThreshold[this.state.minRank] &&
+          userData.elo < EloRankThreshold[this.state.minRank] &&
           !isAdmin
         ) {
           client.leave(CloseCodes.USER_RANK_TOO_LOW)
@@ -101,8 +105,8 @@ export class OnJoinCommand extends Command<
 
         if (
           this.state.maxRank != null &&
-          u.elo &&
-          EloRankThreshold[getRank(u.elo)] >
+          userData.elo &&
+          EloRankThreshold[getRank(userData.elo)] >
           EloRankThreshold[this.state.maxRank] &&
           !isAdmin
         ) {
@@ -113,22 +117,22 @@ export class OnJoinCommand extends Command<
         this.state.users.set(
           client.auth.uid,
           new GameUser(
-            u.uid,
-            u.displayName,
-            u.elo,
-            u.avatar,
+            userData.uid,
+            userData.name,
+            userData.elo,
+            userData.avatar,
             false,
             false,
-            u.title,
-            u.role,
+            userData.title,
+            userData.role,
             auth.email === undefined && auth.photoURL === undefined
           )
         )
         this.room.updatePlayersInfo()
 
-        if (u.uid == this.state.ownerId) {
+        if (userData.uid == this.state.ownerId) {
           // logger.debug(user.displayName);
-          this.state.ownerName = u.displayName
+          this.state.ownerName = userData.name
           this.room.setMetadata({
             ownerName: this.state.ownerName
           })
@@ -137,10 +141,10 @@ export class OnJoinCommand extends Command<
         if (this.state.gameMode !== GameMode.CUSTOM_LOBBY) {
           this.clock.setTimeout(() => {
             if (
-              this.state.users.has(u.uid) &&
-              !this.state.users.get(u.uid)!.ready
+              this.state.users.has(userData.uid) &&
+              !this.state.users.get(userData.uid)!.ready
             ) {
-              this.state.users.delete(u.uid)
+              this.state.users.delete(userData.uid)
               client.leave(CloseCodes.USER_KICKED) // kick clients that can't auto-ready in time. Still investigating why this happens for some people
             }
           }, 10000)
@@ -148,8 +152,8 @@ export class OnJoinCommand extends Command<
 
         this.state.addMessage({
           authorId: "server",
-          payload: `${u.displayName} joined.`,
-          avatar: u.avatar
+          payload: `${userData.name} joined.`,
+          avatar: userData.avatar
         })
       }
 
@@ -431,13 +435,15 @@ export class OnRoomChangeSpecialRule extends Command<
 > {
   async execute({ client, specialRule }) {
     try {
-      const u = await UserMetadata.findOne({ uid: client.auth?.uid })
-      if (!u) {
+      const user = (await UserMetadata.findOne({
+        uid: client.auth?.uid,
+      })) as IGameUser | null
+      if (!user) {
         client.leave(CloseCodes.USER_NOT_AUTHENTICATED)
         return
       }
 
-      if (client.auth?.uid == this.state.ownerId && u.role === Role.ADMIN) {
+       if (client.auth?.uid == this.state.ownerId && user.role === Role.ADMIN) {
         this.state.specialGameRule = specialRule
         if (specialRule != null) {
           this.state.noElo = true
