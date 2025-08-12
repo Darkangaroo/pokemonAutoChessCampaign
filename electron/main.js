@@ -1,3 +1,4 @@
+// electron/main.js
 const { app, BrowserWindow, dialog } = require('electron');
 const { spawn } = require('child_process');
 const path = require('path');
@@ -6,7 +7,7 @@ const net = require('net');
 
 let mainWin, mongo, server;
 
-const MONGO_PORT = 27018;                  // avoid conflicts
+const MONGO_PORT = 27018; // avoid conflicts with local installs
 const APPDATA_DIR = app.getPath('userData');
 const MONGO_DIR = path.join(APPDATA_DIR, 'mongo');
 const DBPATH = path.join(MONGO_DIR, 'data');
@@ -25,8 +26,11 @@ function waitForPort(port, host = '127.0.0.1', timeoutMs = 25000) {
       const s = net.connect(port, host, () => { s.end(); resolve(true); });
       s.on('error', () => {
         s.destroy();
-        if (Date.now() - start > timeoutMs) reject(new Error(port ${port} not ready));
-        else setTimeout(tryOnce, 400);
+        if (Date.now() - start > timeoutMs) {
+          reject(new Error(`port ${port} not ready`));
+        } else {
+          setTimeout(tryOnce, 400);
+        }
       });
     };
     tryOnce();
@@ -36,7 +40,7 @@ function waitForPort(port, host = '127.0.0.1', timeoutMs = 25000) {
 function startMongo() {
   const mongoBin = path.join(process.resourcesPath, 'mongodb', 'win64', 'mongod.exe');
   if (!fs.existsSync(mongoBin)) {
-    throw new Error(mongod.exe not found at ${mongoBin});
+    throw new Error(`mongod.exe not found at ${mongoBin}`);
   }
   const mout = fs.openSync(path.join(LOGDIR, 'mongod-out.log'), 'a');
   const merr = fs.openSync(path.join(LOGDIR, 'mongod-err.log'), 'a');
@@ -44,17 +48,18 @@ function startMongo() {
   mongo = spawn(mongoBin, [
     '--dbpath', DBPATH,
     '--port', String(MONGO_PORT),
-    '--bind_ip', '127.0.0.1'
+    '--bind_ip', '127.0.0.1',
   ], { stdio: ['ignore', mout, merr], windowsHide: true });
 
-  mongo.on('error', e => fs.appendFileSync(path.join(LOGDIR,'launcher.log'), mongod error: ${e}\n));
-  mongo.on('exit', code => fs.appendFileSync(path.join(LOGDIR,'launcher.log'), mongod exited ${code}\n));
+  mongo.on('error', e => fs.appendFileSync(path.join(LOGDIR, 'launcher.log'), `mongod error: ${e}\n`));
+  mongo.on('exit', code => fs.appendFileSync(path.join(LOGDIR, 'launcher.log'), `mongod exited ${code}\n`));
 }
 
 function startServer() {
-  const serverEntry = path.join(process.resourcesPath, 'server', 'index.js');
+  // We bundle the whole built server folder to resources/server/**
+  const serverEntry = path.join(process.resourcesPath, 'server', 'app', 'index.js');
   if (!fs.existsSync(serverEntry)) {
-    throw new Error(server entry not found at ${serverEntry});
+    throw new Error(`server entry not found at ${serverEntry}`);
   }
 
   const out = fs.openSync(path.join(LOGDIR, 'server-out.log'), 'a');
@@ -66,35 +71,36 @@ function startServer() {
     OFFLINE_MODE: '1',
     AUTO_BOTS: '1',
     PORT: '9000',
-    MONGO_URI: mongodb://127.0.0.1:${MONGO_PORT}/dev,
+    MONGO_URI: `mongodb://127.0.0.1:${MONGO_PORT}/dev`,
     RESOURCES_PATH: process.resourcesPath,
   };
 
   server = spawn(process.execPath, [serverEntry], {
-    cwd: process.resourcesPath, 
-    env, stdio: ['ignore', out, err], windowsHide: true
+    cwd: path.join(process.resourcesPath, 'server'), // important for relative paths/imports
+    env,
+    stdio: ['ignore', out, err],
+    windowsHide: true,
   });
 
-  server.on('error', e => fs.appendFileSync(path.join(LOGDIR,'launcher.log'), server error: ${e}\n));
-  server.on('exit',  c => fs.appendFileSync(path.join(LOGDIR,'launcher.log'), server exited ${c}\n));
+  server.on('error', e => fs.appendFileSync(path.join(LOGDIR, 'launcher.log'), `server error: ${e}\n`));
+  server.on('exit', code => fs.appendFileSync(path.join(LOGDIR, 'launcher.log'), `server exited ${code}\n`));
 }
-
-
 
 async function createWindow() {
   mainWin = new BrowserWindow({
     width: 1360,
     height: 820,
-    show: true, // show immediately with a splash
+    show: true, // show immediately with a splash screen
     backgroundColor: '#121212',
     webPreferences: { nodeIntegration: false, contextIsolation: true },
   });
 
-  // simple splash while waiting for server
-  await mainWin.loadURL('data:text/html,<body style="background:#121212;color:#ddd;font:16px sans-serif;padding:24px">Starting local server…</body>');
+  await mainWin.loadURL(
+    'data:text/html,<body style="background:#121212;color:#ddd;font:16px sans-serif;padding:24px">Starting local server…</body>'
+  );
 
   try {
-    await waitForPort(9000, '127.0.0.1', 40000);
+    await waitForPort(9000, '127.0.0.1', 40000); // give server up to 40s on first boot
     await mainWin.loadURL('http://127.0.0.1:9000');
   } catch (e) {
     dialog.showErrorBox('Server failed to start', String(e));
