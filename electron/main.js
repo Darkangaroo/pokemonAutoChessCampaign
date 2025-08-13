@@ -15,10 +15,9 @@ const MONGO_DIR = path.join(APPDATA_DIR, 'mongo');
 const DBPATH = path.join(MONGO_DIR, 'data');
 
 // ---- Ports / DB ----
-// Use a non-default port to avoid conflicts with a local Mongo install.
-const MONGO_PORT = 27028;
+const MONGO_PORT = 27028;        // avoid conflicts with a local mongod
 const SERVER_PORT = 9000;
-const DB_NAME = 'dev'; // you currently use "dev" in .env
+const DB_NAME = 'dev';
 
 function ensureDirs() {
   for (const p of [LOGDIR, MONGO_DIR, DBPATH]) {
@@ -54,9 +53,8 @@ function resolveMongoBin() {
 }
 
 function resolveServerEntry() {
-  // Use the server that the project already builds with esbuild
+  // Use the app server built by esbuild
   if (app.isPackaged) {
-    // packaged path (inside asar)
     const entry = path.join(
       process.resourcesPath, 'app.asar',
       'app', 'public', 'dist', 'server', 'app', 'index.js'
@@ -64,7 +62,6 @@ function resolveServerEntry() {
     if (!fs.existsSync(entry)) throw new Error(`Missing server entry at ${entry}`);
     return entry;
   } else {
-    // dev path (after `npm run build-client`)
     const entry = path.join(__dirname, '..', 'app', 'public', 'dist', 'server', 'app', 'index.js');
     if (!fs.existsSync(entry)) throw new Error(`Missing server entry at ${entry}`);
     return entry;
@@ -90,6 +87,67 @@ function startMongo() {
   mongo.on('exit', c => logLine('launcher.log', `mongod exited ${c}`));
 }
 
+// ---- NEW: seed bots once after Mongo is up ----
+// seed "botv2" from db-commands/botv2.json (Extended JSON -> real BSON)
+async function seedBotsOnce() {
+  const log = (m) => logLine('launcher.log', m);
+  try {
+    const { MongoClient } = require('mongodb');
+    const { EJSON } = require('bson'); // Extended JSON parser
+
+    const uri = `mongodb://127.0.0.1:${MONGO_PORT}/${DB_NAME}`;
+    const client = new MongoClient(uri);
+    await client.connect();
+
+    const db = client.db(DB_NAME);
+    const col = db.collection('botv2'); // lowercase
+
+    const count = await col.estimatedDocumentCount().catch(() => 0);
+    if (count > 0) { log(`botv2 already has ${count} docs; skipping seed`); await client.close(); return; }
+
+    // packaged & dev search paths
+    const candidates = [
+      path.join(process.resourcesPath, 'app.asar', 'db-commands', 'botv2.json'),
+      path.join(process.resourcesPath, 'db-commands', 'botv2.json'),
+      path.join(__dirname, '..', 'db-commands', 'botv2.json'),
+    ];
+    const jsonPath = candidates.find(p => fs.existsSync(p));
+    if (!jsonPath) { log(`botv2.json not found. Tried:\n${candidates.join('\n')}`); await client.close(); return; }
+
+    const raw = fs.readFileSync(jsonPath, 'utf8');
+
+    // Use EJSON so "$oid", "$date", etc. become ObjectId/Date
+    let docs = EJSON.parse(raw, { relaxed: false });
+
+    // Some exports wrap the array, try common keys
+    if (!Array.isArray(docs)) {
+      if (Array.isArray(docs.documents)) docs = docs.documents;
+      else if (Array.isArray(docs.data)) docs = docs.data;
+      else docs = [docs];
+    }
+
+    if (!docs.length) { log('botv2.json parsed but no documents found'); await client.close(); return; }
+
+    try {
+      await col.insertMany(docs, { ordered: false });
+      const after = await col.estimatedDocumentCount();
+      log(`Seeded botv2 with ${after} docs from ${jsonPath}`);
+    } catch (e) {
+      // ignore dup keys but surface other errors
+      if (e && e.code === 11000) {
+        const after = await col.estimatedDocumentCount();
+        log(`botv2 insert had duplicates, current count=${after}`);
+      } else {
+        throw e;
+      }
+    }
+
+    await client.close();
+  } catch (e) {
+    logLine('launcher.log', `Seed bots error: ${e.stack || e}`);
+  }
+}
+
 function startServer() {
   const serverEntry = resolveServerEntry();
   const out = fs.openSync(path.join(LOGDIR, 'server-out.log'), 'a');
@@ -97,17 +155,16 @@ function startServer() {
 
   const env = {
     ...process.env,
-    // IMPORTANT: run the Electron binary as a plain Node process
-    ELECTRON_RUN_AS_NODE: '1',
+    ELECTRON_RUN_AS_NODE: '1',  // run Electron as Node for the spawned script
     NODE_ENV: 'production',
     OFFLINE_MODE: '1',
     AUTO_BOTS: process.env.AUTO_BOTS || '1',
     PORT: String(SERVER_PORT),
     MONGO_URI: `mongodb://127.0.0.1:${MONGO_PORT}/${DB_NAME}`,
+    RESOURCES_PATH: process.resourcesPath  // handy if server code needs it
   };
 
   server = spawn(process.execPath, [serverEntry], {
-    // DO NOT set cwd to a path inside app.asar — it isn't a real directory
     cwd: app.isPackaged ? process.resourcesPath : path.dirname(serverEntry),
     env,
     stdio: ['ignore', out, err],
@@ -117,7 +174,6 @@ function startServer() {
   server.on('error', e => logLine('launcher.log', `server spawn error: ${e.message}`));
   server.on('exit', (code, sig) => logLine('launcher.log', `server exited ${code} ${sig || ''}`));
 }
-
 
 async function createWindow() {
   mainWin = new BrowserWindow({
@@ -155,6 +211,7 @@ else {
     try {
       startMongo();
       await waitForPort(MONGO_PORT, '127.0.0.1', 30000);
+      await seedBotsOnce();            // <-- NEW: seed bots if collection empty
     } catch (e) {
       dialog.showErrorBox('MongoDB failed to start', String(e));
       logLine('launcher.log', `Mongo start error: ${e.message}`);
