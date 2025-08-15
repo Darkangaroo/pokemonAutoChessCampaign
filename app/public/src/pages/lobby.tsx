@@ -135,6 +135,13 @@ function MainLobby() {
             <img width={32} height={32} src={`assets/ui/room.svg`} />
             {t("rooms")}
           </li>
+          <li
+            onClick={() => setActive("campaign")}
+            className={cc({ active: activeSection === "campaign" })}
+          >
+            <img width={32} height={32} src={`assets/ui/map.svg`} />
+            {t("campaign")}
+          </li>
           {/*<li
             onClick={() => setActive("game_rooms")}
             className={cc({ active: activeSection === "game_rooms" })}
@@ -167,6 +174,13 @@ function MainLobby() {
       </section>
       <section className={cc("rooms", { active: activeSection === "rooms" })}>
         <RoomMenu />
+      </section>
+      <section
+        className={cc("campaign", {
+          active: activeSection === "campaign"
+        })}
+      >
+        <div style={{ padding: "1em" }}>Campaign coming soon!</div>
       </section>
       {/*<section
         className={cc("game_rooms", { active: activeSection === "game_rooms" })}
