@@ -1,0 +1,22 @@
+[
+  {
+    "id": "elite1",
+    "name": "Super Four - One",
+    "bot": "6215ef016e8f038cf3ce2482"
+  },
+  {
+    "id": "elite2",
+    "name": "Super Four - Two",
+    "bot": "6215ef016e8f038cf3ce2489"
+  },
+  {
+    "id": "elite3",
+    "name": "Super Four - Three",
+    "bot": "6215ef016e8f038cf3ce2490"
+  },
+  {
+    "id": "champion",
+    "name": "League Champion",
+    "bot": "6215ef016e8f038cf3ce2495"
+  }
+]

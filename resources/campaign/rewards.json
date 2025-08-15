@@ -1,0 +1,17 @@
+{
+  "rankPoints": [
+    {"rank": 0, "required": 0},
+    {"rank": 1, "required": 100},
+    {"rank": 2, "required": 250},
+    {"rank": 3, "required": 500}
+  ],
+  "badgeEffects": {
+    "boulder": {"currencyBonus": 5},
+    "cascade": {"currencyBonus": 5},
+    "thunder": {"currencyBonus": 5}
+  },
+  "unlocks": {
+    "freeBattle": 1,
+    "eliteFour": 3
+  }
+}
