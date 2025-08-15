@@ -1,0 +1,10 @@
+{
+  "lossTips": [
+    "Try leveling up your team.",
+    "Check type advantages for an edge."
+  ],
+  "unlockMessages": {
+    "freeBattle": "Free Battle unlocked! Challenge random bots to earn more rewards.",
+    "eliteFour": "All badges collected! The Super 4 await."
+  }
+}

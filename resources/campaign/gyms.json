@@ -1,0 +1,23 @@
+[
+  {
+    "id": "rock",
+    "name": "Rock Gym",
+    "requiredRank": 0,
+    "badge": "boulder",
+    "bot": "6215ef016e8f038cf3ce246f"
+  },
+  {
+    "id": "water",
+    "name": "Water Gym",
+    "requiredRank": 1,
+    "badge": "cascade",
+    "bot": "6215ef016e8f038cf3ce2470"
+  },
+  {
+    "id": "electric",
+    "name": "Electric Gym",
+    "requiredRank": 2,
+    "badge": "thunder",
+    "bot": "6215ef016e8f038cf3ce2477"
+  }
+]

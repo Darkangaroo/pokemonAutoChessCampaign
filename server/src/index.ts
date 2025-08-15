@@ -1,6 +1,11 @@
 // server/src/index.ts
 import { MongoClient } from 'mongodb';
+import path from 'path';
 import { seedBotsIfEmpty } from './seedBots';
+import {
+  loadCampaignResources,
+  getOrCreateCampaignProfile
+} from './campaign';
 
 export const PORT = Number(process.env.PORT || 9000);
 export const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27028/dev'; // <- 27028 to match Electron
@@ -13,6 +18,11 @@ export const AUTO_BOTS = Number(process.env.AUTO_BOTS || 1);
   const db = client.db(dbName);
 
   await seedBotsIfEmpty(db);
+
+  // Load campaign data from resources and ensure a local profile exists
+  const resourcesPath = process.env.RESOURCES_PATH || path.join(__dirname, '..', '..', 'resources');
+  loadCampaignResources(resourcesPath);
+  await getOrCreateCampaignProfile(db);
 
   // TODO: start Express/Colyseus here, listening on PORT
   // e.g., app.listen(PORT)
